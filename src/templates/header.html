@@ -1,0 +1,56 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title if title else "My Application" }}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">Recognize Face</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+
+                    {% if session.get('lecturer_id') %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('attendance_view') }}">Attendance</a>
+                        </li>
+                    {% endif %}  
+                    {% if (session.get('lecturer_name') == "Admin") %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('students_list') }}">Students list</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('add_student') }}">Add student</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('teachers_list') }}">Teachers list</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('add_teacher') }}">Add teacher</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('attendance_view') }}">Attendance</a>
+                        </li>
+                    {%endif%}
+                    {% if session.get('user_name') or session.get('lecturer_name') %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                        </li>
+                    {% else %}     
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('student_login') }}">Student</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('teacher_login') }}">Teacher</a>
+                        </li>
+                    {% endif %}                     
+                </ul>
+            </div>
+        </div>
+    </nav>
+</head>
+

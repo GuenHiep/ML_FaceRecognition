@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+    {% include 'header.html' %}
+<body>
+    <div class="container">
+        <h1>Student Login</h1>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul>
+                {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+        <form method="POST">
+            <label for="idsv">IDSV:</label>
+            <input type="text" id="idsv" name="idsv" required>
+            
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            
+            <button type="submit">Login</button>
+        </form>
+    </div>
+</body>
+{% include 'footer.html' %}
+</html>

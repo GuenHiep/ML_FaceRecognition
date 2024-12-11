@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include 'header.html' %}
+</head>
+<body>
+    <h1>Edit Subject</h1>
+    <form method="POST">
+        <label for="name">Code:</label>
+        <input type="text" id="code" name="code" value="{{ subject.code }}" required>
+        <br>
+        <label for="users_name">Name:</label>
+        <input type="text" id="name" name="name" value="{{ subject.name }}" required>
+        <br>
+        <label for="email">Credits:</label>
+        <input type="number" id="credits" name="credits" value="{{ subject.credits }}" required>
+        <br>
+        <button type="submit">Update Subject</button>
+    </form>
+</body>
+{% include 'footer.html' %}
+</html>

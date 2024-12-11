@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include 'header.html' %}
+</head>
+<body>
+    <h1>Edit Teacher</h1>
+    <form method="POST">
+        <label for="users_name">Name:</label>
+        <input type="text" id="name" name="name" value="{{ teacher.name }}" required>
+        <br>
+        <label for="class">Email:</label>
+        <input type="text" id="email" name="email" value="{{ teacher.email }}" required>
+        <br>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" value="{{ teacher.password }}" required>
+        <br>
+        <button type="submit">Update Teacher</button>
+    </form>
+</body>
+{% include 'footer.html' %}
+</html>
