@@ -4,17 +4,18 @@ import mysql.connector
 import os
 import socket
 from functools import wraps
+from dbconect import get_connection
 
 app = Flask(__name__)
 app.secret_key = "QDJSUIEWFNQKOWFMDVI"
 # Kết nối MySQL
-def get_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="tuananh1582",
-        database="face_re"
-    )
+# def get_connection():
+#     return mysql.connector.connect(
+#         host="localhost",
+#         user="root",
+#         password="tuananh1582",
+#         database="face_re"
+#     )
 
 # Trang đăng nhập student
 @app.route("/", methods=["GET", "POST"])
@@ -164,8 +165,8 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-@app.route("/students", methods=["GET"])
-@admin_required
+@app.route("/students", methods=["GET","POST"])
+#@admin_required
 def students_list():
     if "lecturer_id" not in session:
         flash("Please login first.", "warning")
@@ -173,12 +174,29 @@ def students_list():
 
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM student ORDER BY class, idsv")
-    students = cursor.fetchall()
+    cursor.execute("SELECT DISTINCT class FROM student ORDER BY class")
+    classes = cursor.fetchall()
+    
+    students = []
+    selected_class = None
+    
+    if request.method == "POST":
+        selected_class = request.form.get("class")
+        if selected_class:
+            cursor.execute(
+                "SELECT * FROM student WHERE class = %s ORDER BY users_name", 
+                (selected_class,)
+            )
+            students = cursor.fetchall()
     cursor.close()
     conn.close()
 
-    return render_template("students.html", students=students)
+    return render_template(
+        "students.html", 
+        students=students, 
+        classes=classes, 
+        selected_class=selected_class
+    )
 
 
 @app.route("/students/add", methods=["GET", "POST"])
@@ -196,6 +214,13 @@ def add_student():
 
         conn = get_connection()
         cursor = conn.cursor()
+        cursor.execute("SELECT * FROM classes WHERE class_name = %s", (student_class,))
+        class_exists = cursor.fetchone()
+
+        if not class_exists:
+            cursor.execute("INSERT INTO classes (class_name) VALUES (%s)", (student_class,))
+            conn.commit()
+        
         cursor.execute(
             "INSERT INTO student (idsv, users_name, class, user_password) VALUES (%s, %s, %s, %s)",
             (idsv, users_name, student_class, user_password),
@@ -518,6 +543,33 @@ def delete_subject(id):
         conn.close()
 
     return redirect(url_for("subjects_list"))
+
+@app.route("/classes", methods=["GET"])
+# @admin_required
+def classes_list():
+    if "lecturer_id" not in session:
+        flash("Please login first.", "warning")
+        return redirect(url_for("login"))
+
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    # Truy vấn kết hợp thông tin lớp học và sĩ số
+    cursor.execute("""
+        SELECT c.id, c.class_name, 
+               COUNT(s.id) AS student_count
+        FROM classes c
+        LEFT JOIN student s ON c.class_name = s.class
+        GROUP BY c.id, c.class_name
+        ORDER BY c.id
+    """)
+    classes = cursor.fetchall()
+    
+    cursor.close()
+    conn.close()
+
+    return render_template("classes.html", classes=classes)
+
 
 # Đăng xuất
 @app.route("/logout")

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include 'header.html' %}
+</head>
+<body>
+    <h1>Subjects List</h1>  
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Class</th>
+                <th>Class Size</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for class_info in classes %}
+            <tr>
+                <td>{{ class_info['id'] }}</td>
+                <td>{{ class_info['class_name'] }}</td>
+                <td>{{ class_info['student_count'] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+{% include 'footer.html' %}
+</html>

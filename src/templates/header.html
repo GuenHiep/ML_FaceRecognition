@@ -16,10 +16,19 @@
 
                     {% if session.get('lecturer_id') %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('attendance_view') }}">Attendance</a>
+                            <a class="nav-link" href="{{ url_for('classes_list') }}">Classes list</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('attendance_view') }}">Attendence List</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('students_list') }}">Student List</a>
                         </li>
                     {% endif %}  
                     {% if (session.get('lecturer_name') == "Admin") %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('classes_list') }}">Classes list</a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('students_list') }}">Students list</a>
                         </li>

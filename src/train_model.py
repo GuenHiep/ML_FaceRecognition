@@ -3,15 +3,16 @@ import numpy as np
 import os
 import mysql.connector
 import pickle
+from dbconect import get_connection
 
 # Kết nối đến MySQL
-def get_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="tuananh1582",
-        database="face_re"
-    )
+# def get_connection():
+#     return mysql.connector.connect(
+#         host="localhost",
+#         user="root",
+#         password="tuananh1582",
+#         database="face_re"
+#     )
 
 # Lấy dữ liệu sinh viên từ bảng `student`
 def get_students_data():
