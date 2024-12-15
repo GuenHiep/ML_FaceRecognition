@@ -5,6 +5,7 @@ import os
 import socket
 from functools import wraps
 from dbconect import get_connection
+from datetime import timedelta
 
 app = Flask(__name__)
 app.secret_key = "QDJSUIEWFNQKOWFMDVI"
@@ -27,29 +28,56 @@ def student_login():
         # Kiểm tra thông tin đăng nhập
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        query = "SELECT * FROM student WHERE idsv = %s AND user_password = %s"
-        cursor.execute(query, (idsv, password))
+
+        # Lấy phiên điểm danh hiện tại
+        cursor.execute("""
+            SELECT class_name, subject_name FROM attendance_sessions
+            WHERE start_time <= NOW() AND (end_time IS NULL OR end_time >= NOW())
+            ORDER BY start_time DESC LIMIT 1
+        """)
+        session_info = cursor.fetchone()
+
+        if not session_info:
+            flash("No active attendance session available. Please try again later.", "danger")
+            cursor.close()
+            conn.close()
+            return render_template("login.html")
+
+        # Kiểm tra sinh viên có thuộc lớp và môn học của phiên điểm danh không
+        query = """
+            SELECT * FROM student 
+            WHERE idsv = %s AND user_password = %s AND class = %s
+        """
+        cursor.execute(query, (idsv, password, session_info["class_name"]))
         user = cursor.fetchone()
+
         cursor.close()
         conn.close()
 
         if user:
+            # Nếu sinh viên hợp lệ, đăng nhập và chuyển đến dashboard
             session["user_id"] = user["idsv"]
             session["user_name"] = user["users_name"]
             session["user_class"] = user["class"]
-            flash("Student login successful!", "success")
+            session["user_subject"] = session_info["subject_name"]  # Thêm thông tin môn học vào session
+
+            flash("Login successful! You can now mark your attendance.", "success")
+
+            # Bắt đầu nhận diện khuôn mặt
             try:
                 script_path = os.path.join(os.getcwd(), 'src', 'recognize_face.py')
                 subprocess.Popen(["python", script_path, idsv])
                 flash("Face recognition process started.", "info")
             except Exception as e:
                 flash(f"Error starting face recognition: {e}", "danger")
-            
+
             return redirect(url_for("dashboard"))
         else:
-            flash("Invalid IDSV or password. Please try again.", "danger")
+            flash("Invalid credentials or you are not eligible for this attendance session.", "danger")
 
     return render_template("login.html")
+
+
 
 
 # Trang đăng nhập teacher
@@ -106,7 +134,7 @@ def dashboard():
 def attendance_view():
     if "lecturer_id" not in session:
         flash("Please login first.", "warning")
-        return redirect(url_for("login"))
+        return redirect(url_for("teacher_login"))
 
     selected_class = None 
     conn = get_connection()
@@ -154,6 +182,177 @@ def attendance_view():
         selected_class=selected_class
     )
 
+#Attendance 
+@app.route("/attendance/start", methods=["GET", "POST"])
+def start_attendance():
+    if "lecturer_id" not in session:
+        flash("Please login first.", "warning")
+        return redirect(url_for("teacher_login"))
+    
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if request.method == "POST":
+        class_name = request.form.get("class_name")
+        subject_name = request.form.get("subject_name")
+
+        cursor.execute("""
+            SELECT id FROM attendance_sessions
+            WHERE class_name = %s AND end_time IS NULL
+        """, (class_name,))
+        existing_class_session = cursor.fetchone()
+
+        cursor.execute("""
+            SELECT id FROM attendance_sessions
+            WHERE lecturer_id = %s AND end_time IS NULL
+        """, (session["lecturer_id"],))
+        existing_lecturer_session = cursor.fetchone()
+
+        if existing_class_session:
+            flash(f"An active attendance session already exists for class {class_name}.", "warning")
+        elif existing_lecturer_session:
+            flash("You already have an active attendance session. Please end it before starting a new one.", "warning")
+        else:
+            # Tạo phiên điểm danh mới
+            cursor.execute(
+                "INSERT INTO attendance_sessions (class_name, subject_name, lecturer_id) VALUES (%s, %s, %s)",
+                (class_name, subject_name, session["lecturer_id"])
+            )
+            conn.commit()
+            flash("Attendance session started successfully!", "success")
+
+        cursor.close()
+        conn.close()
+        return redirect(url_for("start_attendance"))  # Refresh the page to show active session
+
+    # Lấy danh sách lớp và môn học
+    cursor.execute("SELECT DISTINCT class_name FROM classes")
+    classes = cursor.fetchall()
+    cursor.execute("SELECT DISTINCT name FROM subject")
+    subjects = cursor.fetchall()
+
+    # Kiểm tra xem có phiên điểm danh đang hoạt động không
+    cursor.execute("""
+        SELECT id, class_name, subject_name, start_time FROM attendance_sessions
+        WHERE lecturer_id = %s AND end_time IS NULL
+        ORDER BY start_time DESC LIMIT 1
+    """, (session["lecturer_id"],))
+    active_session = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    return render_template("start_attendance.html", classes=classes, subjects=subjects, active_session=active_session)
+
+@app.route("/attendance/end", methods=["POST"])
+def end_attendance():
+    if "lecturer_id" not in session:
+        flash("Please login first.", "warning")
+        return redirect(url_for("teacher_login"))
+
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Lấy ID của phiên điểm danh đang hoạt động (sẽ được kết thúc)
+    cursor.execute("""
+        SELECT id 
+        FROM attendance_sessions
+        WHERE end_time IS NULL
+        ORDER BY start_time DESC LIMIT 1
+    """)
+    active_session = cursor.fetchone()
+
+    if not active_session:
+        flash("No active attendance session to end.", "danger")
+        cursor.close()
+        conn.close()
+        return redirect(url_for("start_attendance"))
+
+    session_id = active_session["id"]
+
+    # Cập nhật thời gian kết thúc phiên điểm danh
+    cursor.execute("""
+        UPDATE attendance_sessions
+        SET end_time = NOW()
+        WHERE id = %s
+    """, (session_id,))
+    conn.commit()
+    flash("Attendance session ended successfully!", "success")
+
+    cursor.close()
+    conn.close()
+
+    return redirect(url_for("attendance_summary", session_id=session_id))
+
+
+@app.route("/attendance/summary/<int:session_id>")
+def attendance_summary(session_id):
+    if "lecturer_id" not in session:
+        flash("Please login first.", "warning")
+        return redirect(url_for("teacher_login"))
+
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Lấy thông tin phiên điểm danh, bao gồm ngày bắt đầu và kết thúc
+    cursor.execute("""
+        SELECT class_name, subject_name, start_time, end_time 
+        FROM attendance_sessions
+        WHERE id = %s
+    """, (session_id,))
+    session_info = cursor.fetchone()
+
+    if not session_info:
+        flash("Attendance session not found.", "danger")
+        cursor.close()
+        conn.close()
+        return redirect(url_for("start_attendance"))
+
+    # Lấy danh sách sinh viên trong lớp
+    class_name = session_info["class_name"]
+    cursor.execute("""
+        SELECT idsv, users_name 
+        FROM student
+        WHERE class = %s
+    """, (class_name,))
+    students = cursor.fetchall()
+
+    # Lấy danh sách điểm danh trong phiên
+    cursor.execute("""
+        SELECT idsv, timestamp 
+        FROM attendance 
+        WHERE session_id = %s
+    """, (session_id,))
+    attendance_records = cursor.fetchall()
+
+    # Tạo dictionary để kiểm tra trạng thái điểm danh
+    attendance_by_date = {}
+    for record in attendance_records:
+        attendance_date = record["timestamp"].strftime("%d-%b-%Y")  # Format ngày
+        if attendance_date not in attendance_by_date:
+            attendance_by_date[attendance_date] = set()
+        attendance_by_date[attendance_date].add(record["idsv"])
+
+    # Lấy các ngày trong phiên điểm danh
+    days = []
+    current_date = session_info["start_time"].date()
+    end_date = session_info["end_time"].date() if session_info["end_time"] else current_date
+
+    # Duyệt qua từng ngày từ start_time đến end_time
+    while current_date <= end_date:
+        days.append(current_date.strftime("%d-%b-%Y"))
+        current_date += timedelta(days=1)
+
+    # Kết hợp danh sách sinh viên với trạng thái điểm danh theo từng ngày
+    for student in students:
+        student["attendance"] = {day: "" if student["idsv"] in attendance_by_date.get(day, set()) else "v" for day in days}
+
+    cursor.close()
+    conn.close()
+
+    return render_template("attendance_summary.html", session_info=session_info, students=students, days=days)
+
+
 
 #CRUD student
 def admin_required(f):
@@ -170,7 +369,7 @@ def admin_required(f):
 def students_list():
     if "lecturer_id" not in session:
         flash("Please login first.", "warning")
-        return redirect(url_for("login"))
+        return redirect(url_for("teacher_login"))
 
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
@@ -204,7 +403,7 @@ def students_list():
 def add_student():
     if "lecturer_id" not in session:
         flash("Please login first.", "warning")
-        return redirect(url_for("login"))
+        return redirect(url_for("teacher_login"))
 
     if request.method == "POST":
         idsv = request.form.get("idsv")
@@ -249,7 +448,7 @@ def add_student():
 def edit_student(id):
     if "lecturer_id" not in session:
         flash("Please login first.", "warning")
-        return redirect(url_for("login"))
+        return redirect(url_for("teacher_login"))
 
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
@@ -303,7 +502,7 @@ def edit_student(id):
 def delete_student(id):
     if "lecturer_id" not in session:
         flash("Please login first.", "warning")
-        return redirect(url_for("login"))
+        return redirect(url_for("teacher_login"))
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -332,7 +531,7 @@ def delete_student(id):
 def teachers_list():
     if "lecturer_id" not in session:
         flash("Please login first.", "warning")
-        return redirect(url_for("login"))
+        return redirect(url_for("teacher_login"))
 
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
@@ -349,7 +548,7 @@ def teachers_list():
 def add_teacher():
     if "lecturer_id" not in session:
         flash("Please login first.", "warning")
-        return redirect(url_for("login"))
+        return redirect(url_for("teacher_login"))
 
     if request.method == "POST":
         name = request.form.get("name")
@@ -383,7 +582,7 @@ def add_teacher():
 def edit_teacher(id):
     if "lecturer_id" not in session:
         flash("Please login first.", "warning")
-        return redirect(url_for("login"))
+        return redirect(url_for("teacher_login"))
 
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
@@ -426,7 +625,7 @@ def edit_teacher(id):
 def delete_teacher(id):
     if "lecturer_id" not in session:
         flash("Please login first.", "warning")
-        return redirect(url_for("login"))
+        return redirect(url_for("teacher_login"))
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -549,7 +748,7 @@ def delete_subject(id):
 def classes_list():
     if "lecturer_id" not in session:
         flash("Please login first.", "warning")
-        return redirect(url_for("login"))
+        return redirect(url_for("teacher_login"))
 
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)

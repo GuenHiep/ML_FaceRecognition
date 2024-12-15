@@ -16,6 +16,9 @@
 
                     {% if session.get('lecturer_id') %}
                         <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('start_attendance') }}">Attendance Check</a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('classes_list') }}">Classes list</a>
                         </li>
                         <li class="nav-item">

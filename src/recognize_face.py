@@ -55,14 +55,34 @@ print(f"Received IDSV: {logged_in_ids}")
 # Điểm danh và lưu vào bảng attendance
 def mark_attendance_in_db(idsv, users_name, class_name, ip_address):
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO attendance (idsv, users_name, class, ip_address, timestamp) VALUES (%s, %s, %s, %s, %s)", 
-        (idsv, users_name, class_name, ip_address, datetime.now())
-    )
-    conn.commit()
+    cursor = conn.cursor(dictionary=True)  # Thêm `dictionary=True` để kết quả trả về là dictionary
+    
+    # Lấy phiên điểm danh hiện tại (nếu có)
+    cursor.execute("""
+        SELECT id FROM attendance_sessions
+        WHERE class_name = %s
+        AND start_time <= NOW() AND (end_time IS NULL OR end_time >= NOW())
+        ORDER BY start_time DESC LIMIT 1
+    """, (class_name,))
+
+    session = cursor.fetchone()
+    
+    if session:
+        session_id = session["id"]  # Bây giờ có thể sử dụng session["id"] vì kết quả trả về là dictionary
+        
+        # Lưu vào bảng attendance với session_id
+        cursor.execute(
+            "INSERT INTO attendance (idsv, users_name, class, ip_address, timestamp, session_id) "
+            "VALUES (%s, %s, %s, %s, %s, %s)", 
+            (idsv, users_name, class_name, ip_address, datetime.now(), session_id)
+        )
+        conn.commit()
+    else:
+        print("No active session found.")
+        
     cursor.close()
     conn.close()
+
 
 # Định nghĩa cascade classifier
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')

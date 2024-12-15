@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include 'header.html' %}
+</head>
+<body>
+    <h1>Attendance Summary</h1>
+    <p><strong>Class:</strong> {{ session_info.class_name }}</p>
+    <p><strong>Subject:</strong> {{ session_info.subject_name }}</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>STT</th>
+                <th>Student ID</th>
+                <th>Name</th>
+                {% for day in days %}
+                <th>{{ day }}</th> <!-- Mỗi ngày là một cột -->
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ student.idsv }}</td>
+                <td>{{ student.users_name }}</td>
+                {% for day in days %}
+                <td>{{ student.attendance[day] }}</td> <!-- Hiển thị trạng thái điểm danh "v" hoặc "x" -->
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+{% include 'footer.html' %}
+</html>

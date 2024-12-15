@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include 'header.html' %}
+</head>
+<body>
+    <h1>Start Attendance Session</h1>
+    <form method="post">
+        <label for="class_name">Select Class:</label>
+        <select id="class_name" name="class_name" required>
+            {% for class in classes %}
+            <option value="{{ class.class_name }}">{{ class.class_name }}</option>
+            {% endfor %}
+        </select>
+        <br>
+
+        <label for="subject_name">Select Subject:</label>
+        <select id="subject_name" name="subject_name" required>
+            {% for subject in subjects %}
+            <option value="{{ subject.name }}">{{ subject.name }}</option>
+            {% endfor %}
+        </select>
+        <br>
+
+        <button type="submit">Start Attendance</button>
+    </form>
+
+    {% if active_session %}
+        <h2>Current Attendance Session</h2>
+        <p>Class: {{ active_session.class_name }}</p>
+        <p>Subject: {{ active_session.subject_name }}</p>
+        <p>Start Time: {{ active_session.start_time }}</p>
+
+        <form method="POST" action="{{ url_for('end_attendance') }}">
+            <button type="submit" class="btn btn-danger">End Attendance</button>
+        </form>
+    {% endif %}
+</body>
+{% include 'footer.html' %}
+</html>
