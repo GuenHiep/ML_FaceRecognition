@@ -31,7 +31,7 @@
         <p>Subject: {{ active_session.subject_name }}</p>
         <p>Start Time: {{ active_session.start_time }}</p>
 
-        <form method="POST" action="{{ url_for('end_attendance') }}">
+        <form method="POST" action="{{ url_for('attendance.end_attendance') }}">
             <button type="submit" class="btn btn-danger">End Attendance</button>
         </form>
     {% endif %}

@@ -9,7 +9,7 @@
         <p>Welcome, {{ lecturer_name }}! Use the filter below to view attendance by class:</p>
 
         <!-- Form chọn lớp -->
-        <form method="POST" action="{{ url_for('attendance_view') }}">
+        <form method="POST" action="{{ url_for('attendance.attendance_view') }}">
             <label for="class_filter">Filter by Class:</label>
             <select name="class_filter" id="class_filter">
                 <option value="">All Classes</option>
